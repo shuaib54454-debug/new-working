@@ -5,8 +5,5 @@
   "authDomain": "crack-petal-506818-c8.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-5a59ca74-01d0-49da-8960-e7b3a8a9fe1e",
   "storageBucket": "crack-petal-506818-c8.firebasestorage.app",
-  "messagingSenderId": "879425467641",
-  "measurementId": "",
-  "oAuthClientId": "879425467641-csutcaic67m3npc2qndracsvd7rau5ob.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+  "messagingSenderId": "879425467641"
 }

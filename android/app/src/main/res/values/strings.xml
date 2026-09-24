@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">AYNGAL</string>
-    <string name="title_activity_main">AYNGAL - جسر التجارة مع إثيوبيا</string>
-    <string name="package_name">com.shuayb.agency</string>
-    <string name="custom_url_scheme">com.shuayb.agency</string>
-</resources>

@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { getAuth } from "firebase-admin/auth";
-import { initializeApp, cert, getApps, App as FirebaseAdminApp } from "firebase-admin/app";
+import { initializeApp, cert, getApps } from "firebase-admin/app";
+import type { App as FirebaseAdminApp } from "firebase-admin/app";
 
 const rootDir = process.cwd();
 const distPath = path.join(rootDir, "dist");
@@ -250,29 +251,39 @@ If the MRZ on the document is partially obscured, blurry, or missing, extract al
 });
 
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    app.get("/manifest.webmanifest", (_req, res) => {
-      const distFile = path.join(distPath, "manifest.webmanifest");
-      if (existsSync(distFile)) return res.sendFile(distFile);
-      return res.sendFile(path.join(publicPath, "manifest.webmanifest"));
-    });
-    app.get("/sw.js", (_req, res) => {
-      const distFile = path.join(distPath, "sw.js");
-      if (existsSync(distFile)) return res.sendFile(distFile);
-      return res.sendFile(path.join(publicPath, "sw.js"));
-    });
-    app.use(express.static(distPath));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
+  app.use(express.static(distPath));
+  app.use(express.static(publicPath));
+
+  if (process.env.NODE_ENV !== "production" && existsSync(path.join(rootDir, "src", "main.tsx"))) {
+    try {
+      const { createServer: createViteServer } = await import("vite");
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+    } catch (err) {
+      console.warn("Vite dev server initialization fallback:", err);
+    }
   }
+
+  app.get("/manifest.webmanifest", (_req, res) => {
+    const distFile = path.join(distPath, "manifest.webmanifest");
+    if (existsSync(distFile)) return res.sendFile(distFile);
+    return res.sendFile(path.join(publicPath, "manifest.webmanifest"));
+  });
+  app.get("/sw.js", (_req, res) => {
+    const distFile = path.join(distPath, "sw.js");
+    if (existsSync(distFile)) return res.sendFile(distFile);
+    return res.sendFile(path.join(publicPath, "sw.js"));
+  });
+  app.use(express.static(distPath));
+  app.get("*", (_req, res) => {
+    if (existsSync(path.join(distPath, "index.html"))) {
+      return res.sendFile(path.join(distPath, "index.html"));
+    }
+    return res.sendFile(path.join(rootDir, "index.html"));
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
