@@ -36,10 +36,10 @@ jobs:
           java-version: 21
 
       - name: 📦 Install project dependencies
-        run: npm ci --legacy-peer-deps
+        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
 
       - name: 🧪 Install Firebase Rules test dependencies
-        run: npm install --no-save @firebase/rules-unit-testing tsx
+        run: npm install --no-save --legacy-peer-deps @firebase/rules-unit-testing tsx
 
       - name: 🔥 Run Firebase Emulator Rules Tests
         run: |
