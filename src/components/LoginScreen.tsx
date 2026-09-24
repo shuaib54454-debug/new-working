@@ -12,12 +12,16 @@ import {
   Mail,
   ShieldCheck,
   UserCheck,
-  Zap
+  Zap,
+  Smartphone,
+  Copy,
+  Check
 } from "lucide-react";
 import { loginWithEmail, registerOwnerAccount, resetUserPassword } from "../lib/firebase";
 import { googleSignIn } from "../lib/googleAuth";
 import { useLanguage } from "../lib/LanguageContext";
 import { ShuaybLogo } from "./ShuaybLogo";
+import { Capacitor } from "@capacitor/core";
 
 const OWNER_EMAIL = "shuaib54454@gmail.com";
 const FIREBASE_CONSOLE_AUTH_URL = "https://console.firebase.google.com/project/crack-petal-506818-c8/authentication/providers";
@@ -29,6 +33,7 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const { isAr, toggleLanguage } = useLanguage();
+  const isNative = Capacitor.isNativePlatform();
   const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
   const [email, setEmail] = useState(OWNER_EMAIL);
   const [password, setPassword] = useState("");
@@ -36,6 +41,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOperationNotAllowed, setIsOperationNotAllowed] = useState(false);
   const [isUnauthorizedDomain, setIsUnauthorizedDomain] = useState(false);
@@ -52,12 +59,63 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
     }
   };
 
+  const handleCopyConsoleLink = async () => {
+    try {
+      await navigator.clipboard.writeText(FIREBASE_CONSOLE_AUTH_URL);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      // fallback
+    }
+  };
+
+  const handleSendResetEmail = async () => {
+    setError(null);
+    setSuccessMessage(null);
+    setSendingReset(true);
+    try {
+      await resetUserPassword(OWNER_EMAIL);
+      setSuccessMessage(
+        isAr
+          ? "تم إرسال رابط تعيين كلمة المرور إلى بريد المالك (shuaib54454@gmail.com) بنجاح! يرجى فتح بريدك في هاتفك والضغط على الرابط لاختيار كلمة مرور لحسابك، ثم كتابتها هنا للدخول."
+          : "Password setup link sent to (shuaib54454@gmail.com)! Open the email, click the link to set your password, then return here to sign in."
+      );
+    } catch (err: any) {
+      const code = err?.code || "";
+      const rawMsg = err?.message || "";
+      if (code === "auth/operation-not-allowed" || rawMsg.includes("auth/operation-not-allowed")) {
+        setIsOperationNotAllowed(true);
+        setError(
+          isAr
+            ? "مزوّد كلمة المرور غير مفعّل في لوحة Firebase Console. يرجى تفعيله باتباع التعليمات أدناه."
+            : "Email/Password provider is disabled in Firebase Console. Please enable it following the instructions below."
+        );
+      } else {
+        setError(rawMsg || (isAr ? "تعذر إرسال الرابط. تحقق من اتصال الإنترنت." : "Failed to send reset email."));
+      }
+    } finally {
+      setSendingReset(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     setError(null);
     setIsOperationNotAllowed(false);
     setIsUnauthorizedDomain(false);
     setSuccessMessage(null);
     setGoogleLoading(true);
+
+    if (isNative) {
+      // In Android WebView, Google strictly blocks popup OAuth (disallowed_useragent)
+      setGoogleLoading(false);
+      setError(
+        isAr
+          ? "تسجيل الدخول عبر نافذة Google المنبثقة محظور أمنياً داخل تطبيقات أندرويد WebView. يرجى استخدام تسجيل الدخول بكلمة المرور لتطبيق الهاتف (APK) الموضح أدناه."
+          : "Google popup login is blocked by Google security inside Android WebViews. Please use the password sign-in for the APK below."
+      );
+      return;
+    }
+
     try {
       const result = await googleSignIn();
       if (result?.user) {
@@ -106,15 +164,29 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         if (password !== confirmPassword) {
           throw new Error(isAr ? "كلمتا المرور غير متطابقتين" : "Passwords do not match");
         }
-        await registerOwnerAccount(email, password);
-        setSuccessMessage(isAr ? "تم إنشاء وتفعيل حساب المالك بنجاح!" : "Owner account created successfully!");
-        onSuccess();
+        try {
+          await registerOwnerAccount(email, password);
+          setSuccessMessage(isAr ? "تم إنشاء وتفعيل حساب المالك بنجاح!" : "Owner account created successfully!");
+          onSuccess();
+        } catch (regErr: any) {
+          const regCode = regErr?.code || "";
+          if (regCode === "auth/email-already-in-use" || regErr?.message?.includes("email-already-in-use")) {
+            // Account already created via Google! Offer password reset setup
+            setError(
+              isAr
+                ? "حساب المالك (shuaib54454@gmail.com) مسجل مسبقاً في النظام عبر Google. لتعيين كلمة مرور له للدخول من تطبيق الهاتف، اضغط على زر 'إرسال رابط تعيين كلمة المرور' أدناه."
+                : "Owner account already exists via Google. Click 'Send password setup link' below to set your password for the mobile APK."
+            );
+          } else {
+            throw regErr;
+          }
+        }
       } else {
         await resetUserPassword(OWNER_EMAIL);
         setSuccessMessage(
           isAr
-            ? "تم إرسال رابط استعادة كلمة المرور إلى بريد المالك (shuaib54454@gmail.com)."
-            : "Password reset link sent to owner email (shuaib54454@gmail.com)."
+            ? "تم إرسال رابط استعادة/تعيين كلمة المرور إلى بريد المالك (shuaib54454@gmail.com). افتح الرابط في هاتفك لتعيين كلمة المرور."
+            : "Password setup/reset link sent to owner email (shuaib54454@gmail.com)."
         );
       }
     } catch (err: any) {
@@ -126,8 +198,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         setIsOperationNotAllowed(true);
         setError(
           isAr
-            ? "تسجيل الدخول بكلمة المرور غير مفعّل في لوحة Firebase Console. يرجى استخدام تسجيل الدخول السريع بحساب Google المعتمد أعلاه، أو تفعيل مزوّد Email/Password في Firebase."
-            : "Email/Password sign-in provider is disabled in Firebase Console. Please use the verified Google Sign-In button above, or enable Email/Password in Firebase Console."
+            ? "مزوّد تسجيل الدخول بكلمة المرور (Email/Password) غير مفعّل في لوحة تحكم Firebase Console. يرجى تفعيله باتباع الخطوات البسيطة أدناه لتمكين الدخول في تطبيق الهاتف."
+            : "Email/Password provider is disabled in Firebase Console. Please enable it following the quick steps below to allow APK sign-in."
         );
       } else if (
         code === "auth/user-not-found" ||
@@ -138,14 +210,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         console.warn("Firebase Auth credential validation failed:", code);
         setError(
           isAr
-            ? "بيانات الدخول غير صحيحة، أو لم يتم إنشاء كلمة مرور لهذا الحساب بعد في Firebase. يمكنك الدخول فوراً عبر حساب Google المعتمد أو إنشاء كلمة مرور جديدة."
-            : "Invalid credentials or password has not been created yet in Firebase. You can sign in with Google or create a password."
+            ? "كلمة المرور غير صحيحة، أو لم يتم تعيين كلمة مرور لهذا الحساب بعد (لأنه أُنشئ عبر Google). اضغط على 'إرسال رابط تعيين كلمة المرور' أدناه لاختيار كلمة مرور لحسابك."
+            : "Incorrect password, or no password has been created yet for this Google account. Click 'Send password setup link' below to set your password."
         );
       } else if (code === "auth/email-already-in-use" || rawMsg.includes("auth/email-already-in-use")) {
         setError(
           isAr
-            ? "الحساب مسجل بالفعل في Firebase. يرجى استخدام تسجيل الدخول العادي."
-            : "Account already exists in Firebase. Please use regular Sign In."
+            ? "الحساب مسجل بالفعل في Firebase. استخدم تسجيل الدخول بكلمة المرور أو اطلب رابط تعيينها."
+            : "Account already exists in Firebase. Please use Sign In or request a password setup link."
         );
       } else if (code === "auth/weak-password" || rawMsg.includes("auth/weak-password")) {
         setError(
@@ -198,76 +270,103 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
           </div>
         </div>
 
+        {/* Native Mobile APK Notice Badge */}
+        {isNative && (
+          <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl flex items-center justify-between text-xs shadow-xs">
+            <div className="flex items-center gap-2 text-[#0E294B] font-bold">
+              <Smartphone className="w-4 h-4 text-[#0284C7] shrink-0" />
+              <span>{isAr ? "نسخة تطبيق الهاتف (Android APK)" : "Android Mobile APK"}</span>
+            </div>
+            <span className="text-[10px] bg-[#0E294B] text-white font-black px-2.5 py-0.5 rounded-full tracking-wide">
+              {isAr ? "دخول المالك" : "Owner"}
+            </span>
+          </div>
+        )}
+
         {/* Operation Not Allowed / Error Resolution Card */}
         {isOperationNotAllowed && (
-          <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-3">
+          <div className="mb-5 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-xs text-amber-950 space-y-3 shadow-xs">
             <div className="flex items-start gap-2.5">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">
+                <p className="font-black text-amber-900 text-sm">
                   {isAr
-                    ? "تسجيل الدخول بكلمة المرور (Email/Password) غير مفعّل في Firebase"
-                    : "Email/Password sign-in provider is disabled in Firebase"}
+                    ? "مطلوب تفعيل خيار (Email/Password) لمرة واحدة فقط في Firebase"
+                    : "Action Required: Enable Email/Password in Firebase Console"}
                 </p>
-                <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
+                <p className="text-[11px] text-amber-800 mt-1 leading-relaxed">
                   {isAr
-                    ? "مشروع Firebase مفعّل عليه الدخول بحساب Google فقط حالياً. يمكنك الدخول فوراً عبر Google أو تفعيل مزوّد كلمة المرور:"
-                    : "Your Firebase project currently has Google Sign-in enabled. Sign in with Google now or enable the Email/Password provider:"}
+                    ? "مشروع Firebase مفعّل عليه الدخول بحساب Google فقط حالياً. لتسجيل الدخول في تطبيق الهاتف (APK)، يلزم تفعيل مزوّد كلمة المرور في مشروع Firebase (خطوة تستغرق 30 ثانية):"
+                    : "Your Firebase project currently only has Google sign-in enabled. To log into the APK, you need to enable Email/Password provider (takes 30 seconds):"}
                 </p>
               </div>
             </div>
 
-            <div>
+            {/* Step-by-step resolution */}
+            <div className="p-3 bg-white rounded-xl border border-amber-200 text-[11px] text-stone-800 space-y-2">
+              <ol className="list-decimal list-inside space-y-1.5 font-medium leading-relaxed">
+                <li>
+                  {isAr ? "افتح صفحة مزودي الدخول في Firebase:" : "Open Firebase sign-in providers:"}{" "}
+                  <a
+                    href={FIREBASE_CONSOLE_AUTH_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-700 font-bold underline inline-flex items-center gap-0.5"
+                  >
+                    Firebase Auth Providers <ExternalLink className="w-3 h-3 inline" />
+                  </a>
+                </li>
+                <li>
+                  {isAr
+                    ? "اضغط على مزوّد: (Email/Password أو البريد الإلكتروني/كلمة المرور)."
+                    : "Click on (Email/Password) provider."}
+                </li>
+                <li>
+                  {isAr
+                    ? "قم بتفعيل المفتاح الأول (Enable) ثم اضغط (Save أو حفظ)."
+                    : "Toggle (Enable) to ON and click (Save)."}
+                </li>
+              </ol>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <a
+                href={FIREBASE_CONSOLE_AUTH_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 py-2.5 px-3 bg-[#172a46] hover:bg-[#203a60] text-white font-bold text-center rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+              >
+                <span>{isAr ? "فتح لوحة تحكم Firebase مباشرة" : "Open Firebase Console"}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
-                disabled={googleLoading}
-                className="w-full py-2.5 px-3 bg-[#172a46] hover:bg-[#203a60] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-sm transition-all"
+                onClick={handleCopyConsoleLink}
+                className="py-2.5 px-3 bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all"
               >
-                <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                {googleLoading ? (isAr ? "جاري الدخول..." : "Signing in...") : (isAr ? "تسجيل الدخول الفوري بحساب Google (المعتمد)" : "Sign in with Google Now (Recommended)")}
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-stone-500" />}
+                <span>{copiedLink ? (isAr ? "تم النسخ!" : "Copied!") : (isAr ? "نسخ الرابط" : "Copy Link")}</span>
               </button>
             </div>
 
-            {/* How to enable email/password in console */}
-            <div className="pt-2 border-t border-amber-200/60">
-              <button
-                type="button"
-                onClick={() => setShowConsoleGuide(!showConsoleGuide)}
-                className="text-[11px] font-bold text-amber-900 underline flex items-center gap-1"
-              >
-                <HelpCircle className="w-3.5 h-3.5" />
-                {isAr ? "خطوات تفعيل كلمة المرور من لوحة تحكم Firebase (سريعة):" : "How to enable Email/Password in Firebase Console:"}
-              </button>
-
-              {showConsoleGuide && (
-                <div className="mt-2 p-2.5 bg-white/90 rounded-xl text-[11px] text-stone-700 leading-relaxed border border-amber-200 space-y-1.5">
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>
-                      {isAr ? "افتح إعدادات مزودي الدخول في Firebase بالضغط هنا:" : "Open Firebase sign-in providers tab:"}{" "}
-                      <a
-                        href={FIREBASE_CONSOLE_AUTH_URL}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[#172a46] font-bold underline inline-flex items-center gap-0.5"
-                      >
-                        Firebase Console &rarr; Providers <ExternalLink className="w-2.5 h-2.5 inline" />
-                      </a>
-                    </li>
-                    <li>{isAr ? "اضغط على مزوّد (Email/Password)." : "Click on (Email/Password) provider."}</li>
-                    <li>{isAr ? "قم بتفعيل خيار (Enable) ثم اضغط (Save)." : "Toggle (Enable) to ON and click (Save)."}</li>
-                  </ol>
-                  <p className="text-[10px] text-stone-500 pt-1 border-t border-stone-100">
-                    {isAr ? "بمجرد حفظ التفعيل في Firebase، سيعمل تسجيل الدخول بكلمة المرور فوراً." : "Once enabled and saved, password sign-in will work immediately."}
-                  </p>
-                </div>
-              )}
-            </div>
+            {!isNative && (
+              <div className="pt-2 border-t border-amber-200">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignIn}
+                  disabled={googleLoading}
+                  className="w-full py-2 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>{isAr ? "أو الدخول عبر Google على المتصفح" : "Or Sign in with Google on Web"}</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -357,14 +456,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
           </div>
         )}
 
-        {/* Primary Recommended Option: Google Sign-In */}
-        {mode === "login" && (
+        {/* Primary Option on Web: Google Sign-In */}
+        {!isNative && mode === "login" && (
           <div className="mb-5">
             <div className="rounded-2xl border-2 border-[#172a46]/15 bg-gradient-to-b from-[#172a46]/5 to-transparent p-4 text-center">
               <div className="flex items-center justify-center gap-1.5 mb-2.5">
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                  {isAr ? "طريقة المصادقة السحابية المعتمدة والمفعّلة" : "Active & Verified Cloud Sign-In"}
+                  {isAr ? "طريقة المصادقة السحابية المعتمدة للمتصفح" : "Active & Verified Cloud Sign-In"}
                 </span>
               </div>
               <button
@@ -424,11 +523,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
 
           {mode !== "forgot" && (
             <div>
-              <label className="block text-xs font-bold text-stone-600 mb-1.5">
-                {mode === "register"
-                  ? (isAr ? "تعيين كلمة المرور الجديدة" : "Set New Password")
-                  : (isAr ? "كلمة المرور" : "Password")}
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-stone-600">
+                  {mode === "register"
+                    ? (isAr ? "تعيين كلمة المرور الجديدة" : "Set New Password")
+                    : (isAr ? "كلمة المرور" : "Password")}
+                </label>
+                {mode === "login" && (
+                  <button
+                    type="button"
+                    onClick={handleSendResetEmail}
+                    disabled={sendingReset}
+                    className="text-[11px] font-bold text-[#0284C7] hover:text-[#0E294B] underline"
+                  >
+                    {sendingReset
+                      ? (isAr ? "جاري الإرسال..." : "Sending...")
+                      : (isAr ? "لم تعيّن كلمة مرور بعد؟ اضغط هنا" : "No password yet? Click here")}
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <KeyRound className="absolute top-3.5 start-3.5 w-4 h-4 text-stone-400" />
                 <input
@@ -437,7 +550,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
                   onChange={e => setPassword(e.target.value)}
                   autoComplete={mode === "register" ? "new-password" : "current-password"}
                   className="w-full ps-10 pe-11 py-3 rounded-2xl border border-stone-200 bg-stone-50 text-sm font-semibold text-stone-800 outline-none focus:ring-2 focus:ring-[#c9a84c]"
-                  placeholder={mode === "register" ? "******" : ""}
+                  placeholder={mode === "register" ? "******" : (isAr ? "أدخل كلمة المرور" : "Enter password")}
                   required
                 />
                 <button
@@ -472,12 +585,36 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
             </div>
           )}
 
+          {/* Quick 1-click password setup button for APK users */}
+          {mode === "login" && isNative && (
+            <div className="pt-0.5">
+              <button
+                type="button"
+                onClick={handleSendResetEmail}
+                disabled={sendingReset}
+                className="w-full py-2.5 px-3 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <Mail className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                <span>
+                  {sendingReset
+                    ? (isAr ? "جاري إرسال الرابط لبريدك..." : "Sending link...")
+                    : (isAr ? "📩 إرسال رابط تعيين كلمة المرور إلى بريدي فوراً" : "Send Password Setup Link to My Email")}
+                </span>
+              </button>
+              <p className="text-[10px] text-stone-400 mt-1 text-center font-medium">
+                {isAr ? "سيصلك رابط في Gmail لاختيار كلمة المرور والعودة للدخول بها" : "You will receive an email to set a password for the APK"}
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading || googleLoading}
             className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${
               mode === "login"
-                ? "bg-stone-100 hover:bg-stone-200 text-[#172a46] border border-stone-300"
+                ? isNative
+                  ? "bg-[#172a46] hover:bg-[#203a60] text-white font-black shadow-md"
+                  : "bg-stone-100 hover:bg-stone-200 text-[#172a46] border border-stone-300"
                 : "bg-[#172a46] hover:bg-[#203a60] text-white font-black shadow-md"
             }`}
           >

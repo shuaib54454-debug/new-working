@@ -834,6 +834,86 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
 
+          {/* Owner APK Password Management Card */}
+          <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-base text-[#172a46] flex items-center gap-2">
+                <KeyRound className="w-5 h-5 text-[#c9a84c]" />
+                <span>{isAr ? "كلمة مرور المالك لتطبيق الهاتف (APK)" : "Owner APK Login Password"}</span>
+              </h3>
+              <span className="text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <Smartphone className="w-3 h-3 text-blue-600" />
+                <span>Android APK</span>
+              </span>
+            </div>
+
+            <p className="text-xs text-stone-500 leading-relaxed">
+              {isAr
+                ? "قم بتعيين أو تحديث كلمة المرور لحساب المالك (shuaib54454@gmail.com) لتسجيل الدخول بها مباشرة في تطبيق الهاتف أندرويد (APK)."
+                : "Set or update the password for the owner account (shuaib54454@gmail.com) to log into the Android APK directly."}
+            </p>
+
+            <form onSubmit={handlePasswordChange} className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {isAr ? "كلمة المرور الجديدة (6 أحرف أو أرقام على الأقل):" : "New Password (min 6 chars):"}
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-semibold text-stone-800 outline-none focus:ring-2 focus:ring-[#c9a84c]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  {isAr ? "تأكيد كلمة المرور الجديدة:" : "Confirm Password:"}
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full p-2.5 bg-stone-50 border border-stone-200 rounded-2xl text-xs font-semibold text-stone-800 outline-none focus:ring-2 focus:ring-[#c9a84c]"
+                  required
+                />
+              </div>
+
+              {passwordStatus && (
+                <div
+                  className={`p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    passwordStatus.type === "success"
+                      ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                      : "bg-rose-50 text-rose-700 border border-rose-200"
+                  }`}
+                >
+                  {passwordStatus.type === "success" ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  )}
+                  <span>{passwordStatus.message}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isChangingPassword || !newPassword}
+                className="w-full py-2.5 bg-[#172a46] hover:bg-[#203a60] text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-[#c9a84c]" />
+                <span>
+                  {isChangingPassword
+                    ? (isAr ? "جاري الحفظ في Firebase..." : "Saving in Firebase...")
+                    : (isAr ? "حفظ كلمة المرور لحساب المالك" : "Save Owner Password")}
+                </span>
+              </button>
+            </form>
+          </div>
+
           {/* Cloud Database (Firebase Firestore) Card */}
           <div className="bg-white p-6 rounded-3xl border border-stone-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
