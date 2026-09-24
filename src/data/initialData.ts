@@ -42,8 +42,8 @@ export const getStageLabel = (stageId: string, isAr: boolean = false): string =>
 };
 
 export const DEFAULT_SETTINGS: AgencySettings = {
-  agencyName: "Shuayb Recruitment & Trade Agency",
-  agencySubtitle: "Shuayb Trade Bridge - Manpower Recruitment & Commercial Trade Services",
+  agencyName: "AYNGAL",
+  agencySubtitle: "AYNGAL - جسر التجارة مع إثيوبيا | تسهيل التجارة - TRADE FACILITATION",
   currency: "ETB",
   nextId: 1,
   phone: "",

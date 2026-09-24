@@ -58,7 +58,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     setIsExportingPDF(true);
     try {
       const typeStr = receipt.type === "PAYMENT" ? "Receipt" : "Voucher";
-      const filename = `Shuayb-${typeStr}-${receipt.receiptNumber || "voucher"}.pdf`;
+      const filename = `AYNGAL-${typeStr}-${receipt.receiptNumber || "voucher"}.pdf`;
       await exportElementToPDF("printable-receipt", {
         filename,
         orientation: "portrait",

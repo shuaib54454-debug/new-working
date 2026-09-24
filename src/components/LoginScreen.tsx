@@ -180,16 +180,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onSuccess }) => {
         {/* Header Branding */}
         <div className="text-center mb-6">
           <div className="flex justify-center mb-3">
-            <ShuaybLogo size="lg" variant="icon" />
+            <ShuaybLogo size="xl" variant="icon" />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#172a46] tracking-tight">
-            Shuayb Trade Bridge
+          <h1 className="text-2xl sm:text-3xl font-serif font-black text-[#0E294B] tracking-wider">
+            AYNGAL
           </h1>
-          <p className="text-[11px] font-bold text-[#8B262A] mt-0.5">
-            {isAr ? "وكالة شعيب للتوظيف والخدمات التجارية" : "Shuayb Agency Portal"}
+          <p className="text-sm font-bold text-[#0E294B] mt-0.5" dir="rtl">
+            جسر التجارة مع إثيوبيا
+          </p>
+          <p className="text-[10px] sm:text-[11px] font-semibold tracking-wider text-[#0284C7] mt-0.5 uppercase">
+            تسهيل التجارة - TRADE FACILITATION
           </p>
           <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-stone-50 border border-stone-200 px-3.5 py-1 text-[11px] font-bold text-stone-600">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#c9a84c]" />
+            <ShieldCheck className="w-3.5 h-3.5 text-[#D4AF37]" />
             {isAr ? "حساب المالك المعتمد: shuaib54454@gmail.com" : "Owner account: shuaib54454@gmail.com"}
           </div>
         </div>

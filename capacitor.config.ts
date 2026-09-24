@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.shuayb.agency',
-  appName: 'شُعيب للتوظيف',
+  appName: 'AYNGAL',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

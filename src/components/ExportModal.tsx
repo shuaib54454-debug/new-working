@@ -185,7 +185,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             headers,
             rows,
             summaryRows: summary,
-            filename: `Shuayb-Candidates-${reportDate}.pdf`,
+            filename: `AYNGAL-Candidates-${reportDate}.pdf`,
             orientation: "landscape"
           });
         } else if (activeTab === "FINANCE") {
@@ -209,7 +209,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             taxNumber: settings.taxNumber,
             headers,
             rows,
-            filename: `Shuayb-Financial-Report-${reportDate}.pdf`,
+            filename: `AYNGAL-Financial-Report-${reportDate}.pdf`,
             orientation: "portrait"
           });
         } else if (activeTab === "PAYMENTS") {
@@ -236,7 +236,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             headers,
             rows,
             summaryRows: summary,
-            filename: `Shuayb-Receipts-${reportDate}.pdf`,
+            filename: `AYNGAL-Receipts-${reportDate}.pdf`,
             orientation: "portrait"
           });
         } else {
@@ -264,18 +264,18 @@ export const ExportModal: React.FC<ExportModalProps> = ({
             headers,
             rows,
             summaryRows: summary,
-            filename: `Shuayb-Expenses-${reportDate}.pdf`,
+            filename: `AYNGAL-Expenses-${reportDate}.pdf`,
             orientation: "portrait"
           });
         }
         showToast(isAr ? "تم توليد وتحميل ملف PDF بنجاح!" : "PDF downloaded successfully!");
       } else {
         // High-Resolution Document Snapshot Export
-        let docName = "Shuayb-Report";
-        if (activeTab === "CANDIDATES") docName = `Shuayb-Candidates-Report-${reportDate}`;
-        else if (activeTab === "FINANCE") docName = `Shuayb-Financial-Report-${reportDate}`;
-        else if (activeTab === "PAYMENTS") docName = `Shuayb-Payments-Receipts-${reportDate}`;
-        else if (activeTab === "EXPENSES") docName = `Shuayb-Agency-Expenses-${reportDate}`;
+        let docName = "AYNGAL-Report";
+        if (activeTab === "CANDIDATES") docName = `AYNGAL-Candidates-Report-${reportDate}`;
+        else if (activeTab === "FINANCE") docName = `AYNGAL-Financial-Report-${reportDate}`;
+        else if (activeTab === "PAYMENTS") docName = `AYNGAL-Payments-Receipts-${reportDate}`;
+        else if (activeTab === "EXPENSES") docName = `AYNGAL-Agency-Expenses-${reportDate}`;
 
         const success = await exportElementToPDF("printable-report", {
           filename: `${docName}.pdf`,

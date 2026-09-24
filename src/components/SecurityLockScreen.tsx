@@ -66,8 +66,8 @@ export const SecurityLockScreen: React.FC<SecurityLockScreenProps> = ({
     try {
       const res = await promptBiometricAuth(
         isAr
-          ? "يرجى التحقق من بصمة الإصبع أو الوجه لفتح نظام وكالة شُعيب وحماية بيانات المرشحين"
-          : "Please authenticate with fingerprint or Face ID to unlock Shuayb Agency System"
+          ? "يرجى التحقق من بصمة الإصبع أو الوجه لفتح نظام AYNGAL وحماية البيانات"
+          : "Please authenticate with fingerprint or Face ID to unlock AYNGAL System"
       );
       if (res.success) {
         handleSuccessfulUnlock();
@@ -152,7 +152,7 @@ export const SecurityLockScreen: React.FC<SecurityLockScreenProps> = ({
         </div>
 
         <h1 className="text-xl font-black text-white tracking-wide">
-          {isAr ? "وكالة شُعيب للاستقدام" : "Shuayb Agency"}
+          {isAr ? "AYNGAL - جسر التجارة مع إثيوبيا" : "AYNGAL"}
         </h1>
         <p className="text-xs text-stone-300 font-bold mt-1">
           {isAr

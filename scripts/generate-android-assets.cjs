@@ -74,7 +74,7 @@ function crc32(buf) {
   return (crc ^ (-1)) >>> 0;
 }
 
-// Icon drawer: Shuayb Theme (Navy Blue #0f172a with Warm Amber #f59e0b)
+// Icon drawer: AYNGAL Theme (Deep Navy #0E294B, Imperial Gold #D4AF37, Aegean Teal #0284C7)
 function drawSquareIcon(x, y, w, h) {
   const cx = w / 2, cy = h / 2, r = w * 0.42;
   const dist = Math.hypot(x - cx, y - cy);
@@ -84,39 +84,41 @@ function drawSquareIcon(x, y, w, h) {
   if (Math.hypot(dx, dy) > cornerR) return [0, 0, 0, 0];
   
   if (dist < r) {
-    if (dist < r * 0.75) return [245, 158, 11, 255]; // Gold #f59e0b
-    return [217, 119, 6, 255]; // Amber ring
+    if (dist < r * 0.5) return [212, 175, 55, 255]; // Gold #D4AF37
+    if (dist < r * 0.72) return [2, 132, 199, 255]; // Teal #0284C7
+    return [243, 229, 171, 255]; // Gold ring #F3E5AB
   }
-  return [15, 23, 42, 255]; // Navy bg #0f172a
+  return [14, 41, 75, 255]; // Deep Navy #0E294B
 }
 
 function drawRoundIcon(x, y, w, h) {
   const cx = w / 2, cy = h / 2, r = w * 0.48;
   const dist = Math.hypot(x - cx, y - cy);
   if (dist > r) return [0, 0, 0, 0];
-  if (dist < r * 0.7) return [245, 158, 11, 255];
-  if (dist < r * 0.9) return [217, 119, 6, 255];
-  return [15, 23, 42, 255];
+  if (dist < r * 0.48) return [212, 175, 55, 255];
+  if (dist < r * 0.72) return [2, 132, 199, 255];
+  if (dist < r * 0.88) return [243, 229, 171, 255];
+  return [14, 41, 75, 255];
 }
 
 function drawForeground(x, y, w, h) {
   const cx = w / 2, cy = h / 2, r = w * 0.28;
   const dist = Math.hypot(x - cx, y - cy);
   if (dist < r) {
-    if (dist < r * 0.7) return [245, 158, 11, 255];
-    return [217, 119, 6, 255];
+    if (dist < r * 0.55) return [212, 175, 55, 255];
+    return [2, 132, 199, 255];
   }
   return [0, 0, 0, 0];
 }
 
 function drawSplash(x, y, w, h) {
-  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.2;
+  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.22;
   const dist = Math.hypot(x - cx, y - cy);
   if (dist < r) {
-    if (dist < r * 0.7) return [245, 158, 11, 255];
-    return [217, 119, 6, 255];
+    if (dist < r * 0.55) return [212, 175, 55, 255];
+    return [2, 132, 199, 255];
   }
-  return [15, 23, 42, 255];
+  return [14, 41, 75, 255];
 }
 
 function generateAssets() {

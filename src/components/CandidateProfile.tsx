@@ -354,8 +354,8 @@ export const CandidateProfile: React.FC<CandidateProfileProps> = ({
       cleanDigits = "251" + cleanDigits.slice(1);
     }
     const greeting = isAr
-      ? `السلام عليكم ${name || ""}، نتواصل معك من وكالة شُعيب بخصوص ملفك وإجراءاتك.`
-      : `Hello ${name || ""}, this is Shuayb Agency reaching out regarding your recruitment application and proceedings.`;
+      ? `السلام عليكم ${name || ""}، نتواصل معك من AYNGAL (جسر التجارة مع إثيوبيا) بخصوص ملفك وإجراءاتك.`
+      : `Hello ${name || ""}, this is AYNGAL reaching out regarding your application and proceedings.`;
     return `https://wa.me/${cleanDigits}?text=${encodeURIComponent(greeting)}`;
   };
 

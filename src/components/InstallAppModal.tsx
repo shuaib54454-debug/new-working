@@ -87,10 +87,10 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <h3 className="text-lg font-black">
-                {isAr ? "تثبيت تطبيق وكالة شُعيب" : "Install Shuayb App"}
+                {isAr ? "تثبيت تطبيق AYNGAL" : "Install AYNGAL App"}
               </h3>
-              <p className="text-xs text-[#c9a84c] font-bold">
-                Shuayb Trade Bridge • Progressive Web App
+              <p className="text-xs text-[#D4AF37] font-bold">
+                AYNGAL • جسر التجارة مع إثيوبيا
               </p>
             </div>
           </div>
@@ -148,7 +148,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({ isOpen, onClos
               {/* Direct APK Download Button */}
               <a
                 href="/api/download-apk"
-                download="Shuayb-Agency.apk"
+                download="AYNGAL.apk"
                 className="w-full bg-[#172a46] hover:bg-[#1f375b] text-white py-3.5 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2.5 shadow-md transition-all active:scale-98 border border-[#c9a84c]/30"
               >
                 <Smartphone className="w-5 h-5 text-[#c9a84c]" />

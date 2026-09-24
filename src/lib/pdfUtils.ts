@@ -36,7 +36,7 @@ export async function exportElementToPDF(
     }
 
     const {
-      filename = `Shuayb-Report-${new Date().toISOString().split("T")[0]}.pdf`,
+      filename = `AYNGAL-Report-${new Date().toISOString().split("T")[0]}.pdf`,
       orientation = "portrait",
       format = "a4",
       scale = 2
@@ -159,7 +159,7 @@ export function generateDirectTablePDF(options: {
 }) {
   const {
     title,
-    subtitle = "Shuayb Trade Bridge - وكالة شُعيب",
+    subtitle = "AYNGAL - جسر التجارة مع إثيوبيا",
     agencyName,
     phone,
     taxNumber,
@@ -187,7 +187,7 @@ export function generateDirectTablePDF(options: {
   // Title in Header
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
-  doc.text(agencyName || "Shuayb Agency", 14, 11);
+  doc.text(agencyName || "AYNGAL", 14, 11);
 
   doc.setFontSize(9);
   doc.setTextColor(201, 168, 76); // #c9a84c gold
@@ -287,7 +287,7 @@ export function exportSingleCandidateDirectPDF(candidate: Candidate, settings: A
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(14);
-  doc.text(settings.agencyName || "Shuayb Agency", 14, 12);
+  doc.text(settings.agencyName || "AYNGAL", 14, 12);
 
   doc.setFontSize(9);
   doc.setTextColor(201, 168, 76);
