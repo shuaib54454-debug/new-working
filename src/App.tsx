@@ -35,8 +35,10 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // 3. التحقق من صلاحيات المالك (البريد الإلكتروني المعتمد)
-  const isOwner = currentUser?.email?.toLowerCase() === "shuaib54454@gmail.com";
+  // 3. التحقق من صلاحيات المالك: البريد المحدد + الحساب موثّق
+  const isOwner =
+    currentUser?.email?.toLowerCase() === "shuaib54454@gmail.com" &&
+    currentUser.emailVerified === true;
 
   // 5. دالة التبديل بين الصفحات (تغير الـ State وتحدث الرابط)
   const handleNavigate = (view: string) => {
@@ -122,33 +124,25 @@ export default function App() {
 
         <button
           onClick={() => handleNavigate('dashboard')}
-          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${
-            currentView === 'dashboard' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'
-          }`}
+          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${currentView === 'dashboard' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'}`}
         >
           لوحة التحكم
         </button>
         <button
           onClick={() => handleNavigate('list')}
-          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${
-            currentView === 'list' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'
-          }`}
+          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${currentView === 'list' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'}`}
         >
           قائمة المرشحين
         </button>
         <button
           onClick={() => handleNavigate('gallery')}
-          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${
-            currentView === 'gallery' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'
-          }`}
+          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${currentView === 'gallery' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'}`}
         >
           معاينة المعرض
         </button>
         <button
           onClick={() => handleNavigate('selections')}
-          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${
-            currentView === 'selections' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'
-          }`}
+          className={`px-3 py-1 rounded-lg text-xs md:text-sm font-bold transition-colors cursor-pointer ${currentView === 'selections' ? 'bg-[#0E294B] text-white' : 'text-blue-700 hover:bg-blue-50'}`}
         >
           الطلبات الواردة
         </button>
