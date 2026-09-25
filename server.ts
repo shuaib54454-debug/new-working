@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import type { App as FirebaseAdminApp } from "firebase-admin/app";
 import { validateTD3MRZ } from "./src/lib/passportValidation.ts";
@@ -40,7 +41,7 @@ const ALLOWED_PROJECT_IDS = new Set<string>(
 );
 const firebaseApps = new Map<string, FirebaseAdminApp>();
 
-function getFirebaseAuthForProject(projectId: string) {
+function getFirebaseAppForProject(projectId: string) {
   if (!ALLOWED_PROJECT_IDS.has(projectId)) throw new Error(`Unauthorized Firebase project: ${projectId}`);
   let firebaseApp = firebaseApps.get(projectId);
   if (!firebaseApp) {
@@ -61,7 +62,11 @@ function getFirebaseAuthForProject(projectId: string) {
     }
     firebaseApps.set(projectId, firebaseApp);
   }
-  return getAuth(firebaseApp);
+  return firebaseApp;
+}
+
+function getFirebaseAuthForProject(projectId: string) {
+  return getAuth(getFirebaseAppForProject(projectId));
 }
 
 function getTokenProjectId(idToken: string): string {
@@ -136,6 +141,56 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 // Health is intentionally non-diagnostic: do not expose project IDs, key presence,
 // or deployment details to unauthenticated callers.
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+
+async function verifyFirebaseUserAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ success: false, error: "Authentication required" });
+  const idToken = authHeader.slice(7).trim();
+  if (!idToken || idToken === "guest" || idToken === "applet-agency-session" || idToken.startsWith("local-mode-user:")) {
+    return res.status(401).json({ success: false, error: "A verified Firebase ID token is required" });
+  }
+  try {
+    const projectId = getTokenProjectId(idToken);
+    const auth = getFirebaseAuthForProject(projectId);
+    const hasServiceAccount = Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    const decoded = await auth.verifyIdToken(idToken, hasServiceAccount);
+    (req as any).user = decoded;
+    (req as any).firebaseProjectId = projectId;
+    return next();
+  } catch (error) {
+    console.warn("Firebase user authentication failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(401).json({ success: false, error: "Invalid or expired authentication token" });
+  }
+}
+
+app.get("/api/candidates/catalog", verifyFirebaseUserAuth, async (req, res) => {
+  try {
+    const projectId = (req as any).firebaseProjectId as string;
+    if (projectId !== PRIMARY_PROJECT_ID) return res.status(403).json({ success: false, error: "Unsupported Firebase project" });
+    const firebaseDb = getFirestore(
+      getFirebaseAppForProject(projectId),
+      typeof firebaseConfig?.firestoreDatabaseId === "string" && firebaseConfig.firestoreDatabaseId ? firebaseConfig.firestoreDatabaseId : "(default)"
+    );
+    const snapshot = await firebaseDb.collection("candidates").limit(500).get();
+    const candidates = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        fullName: typeof data.fullName === "string" ? data.fullName : [data.firstName, data.lastName].filter((value) => typeof value === "string" && value.trim()).join(" ").trim(),
+        fullNameArabic: typeof data.fullNameArabic === "string" ? data.fullNameArabic : "",
+        nationality: typeof data.nationality === "string" ? data.nationality : typeof data.country === "string" ? data.country : "إثيوبيا",
+        jobTitle: typeof data.jobTitle === "string" ? data.jobTitle : typeof data.job === "string" ? data.job : "عاملة منزلية",
+        gender: typeof data.gender === "string" ? data.gender : "other",
+        birthDate: typeof data.birthDate === "string" ? data.birthDate : typeof data.dateOfBirth === "string" ? data.dateOfBirth : "",
+        status: typeof data.status === "string" ? data.status : typeof data.stage === "string" ? data.stage : "متاح"
+      };
+    });
+    return res.json({ success: true, candidates });
+  } catch (error) {
+    console.error("Candidate catalog request failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(500).json({ success: false, error: "Unable to load candidate catalog" });
+  }
+});
 
 app.post("/api/scan-passport", verifyPassportScanAuth, async (req, res) => {
   try {

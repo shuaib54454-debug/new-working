@@ -24,19 +24,19 @@ service cloud.firestore {
     }
 
     match /candidates/{candidateId} {
-      allow read: if isSignedIn();
-      allow write: if isOwner();
+      allow read, write: if isOwner();
     }
 
     match /selections/{selectionId} {
       allow create: if isSignedIn()
         && hasOnlySelectionFields()
         && request.resource.data.clientUid == request.auth.uid
+        && request.auth.token.email is string
+        && request.resource.data.clientEmail is string
         && request.resource.data.clientEmail.lower() == request.auth.token.email.lower()
         && request.resource.data.status == "Pending"
         && request.resource.data.candidateId is string
         && request.resource.data.candidateName is string
-        && request.resource.data.clientEmail is string
         && request.resource.data.createdAt == request.time;
 
       allow read: if isOwner()

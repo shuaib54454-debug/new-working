@@ -34,26 +34,27 @@ export default function CandidatesGallery() {
     const fetchCandidates = async () => {
       try {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, 'candidates'));
-        const candidatesData: Candidate[] = querySnapshot.docs.map((docSnap) => {
-          const raw = docSnap.data() as Record<string, any>;
-          
-          // دعم صيغة Blueprint الموحدة بالإضافة إلى الحقول التوافقية إن وجدت
-          const resolvedFullName =
-            raw.fullName ||
-            (raw.firstName ? `${raw.firstName} ${raw.lastName || ''}`.trim() : 'مرشح');
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Authentication token unavailable');
 
-          return {
-            id: docSnap.id,
-            fullName: resolvedFullName,
-            fullNameArabic: raw.fullNameArabic || '',
-            nationality: raw.nationality || raw.country || 'إثيوبيا',
-            jobTitle: raw.jobTitle || raw.job || 'عاملة منزلية',
-            gender: raw.gender === 'male' ? 'ذكر' : raw.gender === 'female' ? 'أنثى' : raw.gender || 'أنثى',
-            birthDate: raw.birthDate || raw.dateOfBirth || 'غير مسجل',
-            status: raw.status || raw.stage || 'متاح'
-          };
+        const response = await fetch('/api/candidates/catalog', {
+          headers: { Authorization: `Bearer ${idToken}` }
         });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success || !Array.isArray(payload.candidates)) {
+          throw new Error(payload?.error || 'Unable to load candidate catalog');
+        }
+
+        const candidatesData: Candidate[] = payload.candidates.map((raw: Record<string, any>) => ({
+          id: String(raw.id || ''),
+          fullName: String(raw.fullName || 'مرشح'),
+          fullNameArabic: String(raw.fullNameArabic || ''),
+          nationality: String(raw.nationality || 'إثيوبيا'),
+          jobTitle: String(raw.jobTitle || 'عاملة منزلية'),
+          gender: raw.gender === 'male' ? 'ذكر' : raw.gender === 'female' ? 'أنثى' : 'غير محدد',
+          birthDate: String(raw.birthDate || 'غير مسجل'),
+          status: String(raw.status || 'متاح')
+        }));
 
         if (isMounted) {
           setCandidates(candidatesData);
