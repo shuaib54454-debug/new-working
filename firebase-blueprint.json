@@ -1,0 +1,60 @@
+{
+  "entities": {
+    "Candidate": {
+      "collection": "candidates",
+      "fields": {
+        "id": { "type": "string", "description": "Candidate unique ID" },
+        "fullName": { "type": "string", "description": "Full Latin name" },
+        "fullNameArabic": { "type": "string", "description": "Full Arabic name" },
+        "passportNumber": { "type": "string", "description": "Passport number" },
+        "nationality": { "type": "string", "description": "Nationality" },
+        "jobTitle": { "type": "string", "description": "Role/profession" },
+        "birthDate": { "type": "string", "description": "Birth date" },
+        "expiryDate": { "type": "string", "description": "Passport expiry date" },
+        "gender": { "type": "string", "description": "Gender" },
+        "status": { "type": "string", "description": "Application status" },
+        "ownerUid": { "type": "string", "description": "Firebase Auth UID of the owner" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "Expense": {
+      "collection": "expenses",
+      "fields": {
+        "id": { "type": "string", "description": "Expense ID" },
+        "amount": { "type": "number", "description": "Amount" },
+        "category": { "type": "string", "description": "Category" },
+        "ownerUid": { "type": "string", "description": "Firebase Auth UID of the owner" },
+        "date": { "type": "string", "description": "ISO timestamp" }
+      }
+    },
+    "Setting": {
+      "collection": "settings",
+      "fields": {
+        "ownerUid": { "type": "string", "description": "Owner UID" },
+        "theme": { "type": "string", "description": "UI theme" },
+        "language": { "type": "string", "description": "Preferred language" }
+      }
+    },
+    "Activity": {
+      "collection": "activities",
+      "fields": {
+        "id": { "type": "string", "description": "Activity log ID" },
+        "action": { "type": "string", "description": "Action performed" },
+        "ownerUid": { "type": "string", "description": "Owner UID" },
+        "timestamp": { "type": "string", "description": "Timestamp" }
+      }
+    },
+    "Selection": {
+      "collection": "selections",
+      "fields": {
+        "id": { "type": "string", "description": "Selection request ID" },
+        "candidateId": { "type": "string", "description": "ID of the selected candidate" },
+        "candidateName": { "type": "string", "description": "Name of the candidate for quick reference" },
+        "clientUid": { "type": "string", "description": "Firebase Auth UID of the client who made the request" },
+        "clientEmail": { "type": "string", "description": "Email of the client" },
+        "status": { "type": "string", "description": "Status of the request (e.g., Pending, Approved, Rejected)" },
+        "createdAt": { "type": "string", "description": "ISO timestamp of when the selection was made" }
+      }
+    }
+  }
+}

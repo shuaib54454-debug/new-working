@@ -1,3 +1,27 @@
+export interface CandidateIdCardData {
+  fullName: string;
+  jobTitle?: string;
+  photoUrl?: string;
+  idCardNumber?: string;
+  passportNumber?: string;
+  cocNumber?: string;
+  medicalExamStatus?: string;
+  organizationName?: string;
+  logoUrl?: string;
+  issueDate?: string;
+  expiryDate?: string;
+}
+
+export interface IdCardRenderOptions {
+  isAr?: boolean;
+  showOrganization?: boolean;
+  showLogo?: boolean;
+  showDates?: boolean;
+  maskSensitiveData?: boolean;
+  showQrCode?: boolean;
+  side?: "both" | "front" | "back";
+}
+
 var __defProp=Object.defineProperty;var __name=(target,value)=>__defProp(target,"name",{value,configurable:true});function escapeHtml(value){return String(value??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}__name(escapeHtml,"escapeHtml");function safeImageUrl(value){const raw=String(value??"").trim();if(!raw)return"";if(/^(https?:\/\/|blob:)/i.test(raw))return raw;if(/^data:image\/(?:png|jpe?g|gif|webp);base64,/i.test(raw))return raw;return""}__name(safeImageUrl,"safeImageUrl");function maskSensitiveValue(value){if(!value)return"----";const clean=value.trim();if(clean.length<=4)return clean;const lastFour=clean.slice(-4);return`\u2022\u2022\u2022\u2022 ${lastFour}`}__name(maskSensitiveValue,"maskSensitiveValue");function getMedicalExamBadgeHtml(status,isAr=true){const normalized=(status||"").trim();if(normalized==="\u0645\u0643\u062A\u0645\u0644"||normalized.includes("\u0644\u0627\u0626\u0642")||normalized.toLowerCase().includes("complete")||normalized.toLowerCase().includes("fit")){return`
       <span class="cr80-badge cr80-badge-success">
         <svg class="cr80-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -496,7 +520,7 @@ var __defProp=Object.defineProperty;var __name=(target,value)=>__defProp(target,
         display: none !important;
       }
     }
-  `}__name(getIdCardStyles,"getIdCardStyles");function generateFrontCardHtml(data,options={}){const isAr=options.isAr!==false;const showOrg=options.showOrganization!==false;const showLogo=options.showLogo!==false;const showDates=options.showDates!==false;const orgName=showOrg&&data.organizationName?escapeHtml(data.organizationName):isAr?"\u0627\u0644\u0645\u0633\u062A\u0634\u0641\u0649 \u0627\u0644\u062A\u062E\u0635\u0635\u064A \u0644\u0644\u0631\u0639\u0627\u064A\u0629 \u0627\u0644\u0635\u062D\u064A\u0629":"Specialized Healthcare Center";const jobTitle=escapeHtml(data.jobTitle||(isAr?"\u0637\u0628\u064A\u0628":"Doctor"));const photoSrc=safeImageUrl(data.photoUrl);return`
+  `}__name(getIdCardStyles,"getIdCardStyles");function generateFrontCardHtml(data: CandidateIdCardData,options: IdCardRenderOptions={}){const isAr=options.isAr!==false;const showOrg=options.showOrganization!==false;const showLogo=options.showLogo!==false;const showDates=options.showDates!==false;const orgName=showOrg&&data.organizationName?escapeHtml(data.organizationName):isAr?"\u0627\u0644\u0645\u0633\u062A\u0634\u0641\u0649 \u0627\u0644\u062A\u062E\u0635\u0635\u064A \u0644\u0644\u0631\u0639\u0627\u064A\u0629 \u0627\u0644\u0635\u062D\u064A\u0629":"Specialized Healthcare Center";const jobTitle=escapeHtml(data.jobTitle||(isAr?"\u0637\u0628\u064A\u0628":"Doctor"));const photoSrc=safeImageUrl(data.photoUrl);return`
     <div class="cr80-card cr80-card-front" id="cr80-card-front" style="direction: ${isAr?"rtl":"ltr"}; text-align: ${isAr?"right":"left"};">
       <div class="cr80-content">
         <!-- Header -->
@@ -549,7 +573,7 @@ var __defProp=Object.defineProperty;var __name=(target,value)=>__defProp(target,
         </div>
       </div>
     </div>
-  `}__name(generateFrontCardHtml,"generateFrontCardHtml");function generateBackCardHtml(data,options={}){const isAr=options.isAr!==false;const isMasked=!!options.maskSensitiveData;const showQr=options.showQrCode!==false;const notAvailableStr=isAr?"\u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631":"N/A";const displayPassport=isMasked?maskSensitiveValue(data.passportNumber):data.passportNumber||notAvailableStr;const displayCoc=isMasked?maskSensitiveValue(data.cocNumber):data.cocNumber||notAvailableStr;const verificationPayload=JSON.stringify({id:data.idCardNumber,name:data.fullName,med:data.medicalExamStatus,coc:displayCoc});return`
+  `}__name(generateFrontCardHtml,"generateFrontCardHtml");function generateBackCardHtml(data: CandidateIdCardData,options: IdCardRenderOptions={}){const isAr=options.isAr!==false;const isMasked=!!options.maskSensitiveData;const showQr=options.showQrCode!==false;const notAvailableStr=isAr?"\u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631":"N/A";const displayPassport=isMasked?maskSensitiveValue(data.passportNumber):data.passportNumber||notAvailableStr;const displayCoc=isMasked?maskSensitiveValue(data.cocNumber):data.cocNumber||notAvailableStr;const verificationPayload=JSON.stringify({id:data.idCardNumber,name:data.fullName,med:data.medicalExamStatus,coc:displayCoc});return`
     <div class="cr80-card cr80-card-back" id="cr80-card-back" style="direction: ${isAr?"rtl":"ltr"}; text-align: ${isAr?"right":"left"};">
       <div class="cr80-content">
         <!-- Header -->
@@ -611,7 +635,7 @@ var __defProp=Object.defineProperty;var __name=(target,value)=>__defProp(target,
         </div>
       </div>
     </div>
-  `}__name(generateBackCardHtml,"generateBackCardHtml");function renderIdCard(rootElement,candidateData,options={}){if(!rootElement){throw new Error("renderIdCard: rootElement must be a valid HTMLElement")}const side=options.side||"both";let cardsMarkup="";if(side==="both"||side==="front"){cardsMarkup+=generateFrontCardHtml(candidateData,options)}if(side==="both"||side==="back"){cardsMarkup+=generateBackCardHtml(candidateData,options)}const styles=getIdCardStyles();rootElement.innerHTML=`
+  `}__name(generateBackCardHtml,"generateBackCardHtml");function renderIdCard(rootElement: any,candidateData: CandidateIdCardData,options: IdCardRenderOptions={}){if(!rootElement){throw new Error("renderIdCard: rootElement must be a valid HTMLElement")}const side=options.side||"both";let cardsMarkup="";if(side==="both"||side==="front"){cardsMarkup+=generateFrontCardHtml(candidateData,options)}if(side==="both"||side==="back"){cardsMarkup+=generateBackCardHtml(candidateData,options)}const styles=getIdCardStyles();rootElement.innerHTML=`
     <div class="cr80-wrapper">
       <style>${styles}</style>
       <div class="cr80-cards-container cr80-printable-container">
