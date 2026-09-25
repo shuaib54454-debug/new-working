@@ -30,13 +30,20 @@ service cloud.firestore {
     match /selections/{selectionId} {
       allow create: if isSignedIn()
         && hasOnlySelectionFields()
+        && selectionId == request.auth.uid + "__" + request.resource.data.candidateId
         && request.resource.data.clientUid == request.auth.uid
         && request.auth.token.email is string
         && request.resource.data.clientEmail is string
         && request.resource.data.clientEmail.lower() == request.auth.token.email.lower()
         && request.resource.data.status == "Pending"
         && request.resource.data.candidateId is string
+        && request.resource.data.candidateId.size() > 0
+        && request.resource.data.candidateId.size() <= 200
         && request.resource.data.candidateName is string
+        && request.resource.data.candidateName.size() > 0
+        && request.resource.data.candidateName.size() <= 200
+        && request.resource.data.clientEmail.size() > 0
+        && request.resource.data.clientEmail.size() <= 320
         && request.resource.data.createdAt == request.time;
 
       allow read: if isOwner()
