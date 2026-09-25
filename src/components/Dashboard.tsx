@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth, db } from '../firebase';
 import {
   Users,
   ShieldCheck,
@@ -28,15 +28,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     let isMounted = true;
     const loadStats = async () => {
       try {
-        const [candSnap, selSnap] = await Promise.all([
-          getDocs(collection(db, 'candidates')).catch(() => null),
-          getDocs(collection(db, 'selections')).catch(() => null)
-        ]);
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Authentication token unavailable');
+
+        const catalogResponse = await fetch('/api/candidates/catalog', {
+          headers: { Authorization: `Bearer ${idToken}` }
+        });
+        const catalogPayload = await catalogResponse.json().catch(() => null);
+        if (!catalogResponse.ok || !catalogPayload?.success || !Array.isArray(catalogPayload.candidates)) {
+          throw new Error(catalogPayload?.error || 'Unable to load candidate catalog');
+        }
+
+        const selSnap = await getDocs(collection(db, 'selections')).catch(() => null);
 
         if (isMounted) {
-          if (candSnap) {
-            setCandidatesCount(candSnap.size);
-          }
+          setCandidatesCount(catalogPayload.candidates.length);
           if (selSnap) {
             setSelectionsCount(selSnap.size);
             const pending = selSnap.docs.filter((d) => d.data().status === 'Pending').length;

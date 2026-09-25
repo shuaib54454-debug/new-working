@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, serverTimestamp, query, setDoc, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { User, Briefcase, Globe, CheckCircle, Calendar, AlertCircle, Loader2, Info } from 'lucide-react';
 
@@ -34,26 +34,27 @@ export default function CandidatesGallery() {
     const fetchCandidates = async () => {
       try {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, 'candidates'));
-        const candidatesData: Candidate[] = querySnapshot.docs.map((docSnap) => {
-          const raw = docSnap.data() as Record<string, any>;
-          
-          // دعم صيغة Blueprint الموحدة بالإضافة إلى الحقول التوافقية إن وجدت
-          const resolvedFullName =
-            raw.fullName ||
-            (raw.firstName ? `${raw.firstName} ${raw.lastName || ''}`.trim() : 'مرشح');
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Authentication token unavailable');
 
-          return {
-            id: docSnap.id,
-            fullName: resolvedFullName,
-            fullNameArabic: raw.fullNameArabic || '',
-            nationality: raw.nationality || raw.country || 'إثيوبيا',
-            jobTitle: raw.jobTitle || raw.job || 'عاملة منزلية',
-            gender: raw.gender === 'male' ? 'ذكر' : raw.gender === 'female' ? 'أنثى' : raw.gender || 'أنثى',
-            birthDate: raw.birthDate || raw.dateOfBirth || 'غير مسجل',
-            status: raw.status || raw.stage || 'متاح'
-          };
+        const response = await fetch('/api/candidates/catalog', {
+          headers: { Authorization: `Bearer ${idToken}` }
         });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success || !Array.isArray(payload.candidates)) {
+          throw new Error(payload?.error || 'Unable to load candidate catalog');
+        }
+
+        const candidatesData: Candidate[] = payload.candidates.map((raw: Record<string, any>) => ({
+          id: String(raw.id || ''),
+          fullName: String(raw.fullName || 'مرشح'),
+          fullNameArabic: String(raw.fullNameArabic || ''),
+          nationality: String(raw.nationality || 'إثيوبيا'),
+          jobTitle: String(raw.jobTitle || 'عاملة منزلية'),
+          gender: raw.gender === 'male' ? 'ذكر' : raw.gender === 'female' ? 'أنثى' : 'غير محدد',
+          birthDate: String(raw.birthDate || 'غير مسجل'),
+          status: String(raw.status || 'متاح')
+        }));
 
         if (isMounted) {
           setCandidates(candidatesData);
@@ -128,8 +129,10 @@ export default function CandidatesGallery() {
 
       const candidateDisplayName = candidate.fullNameArabic || candidate.fullName;
 
-      // إضافة طلب جديد إلى مجموعة selections
-      await addDoc(collection(db, 'selections'), {
+      // استخدم معرفاً حتمياً لمنع إنشاء أكثر من طلب لنفس العميل والمرشح.
+      // إذا كان الطلب موجوداً مسبقاً، تمنع قواعد Firestore تحديثه من جهة العميل.
+      const selectionId = `${auth.currentUser.uid}__${candidate.id}`;
+      await setDoc(doc(db, 'selections', selectionId), {
         candidateId: candidate.id,
         candidateName: candidateDisplayName,
         clientUid: auth.currentUser.uid,

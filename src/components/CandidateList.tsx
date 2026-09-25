@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth } from '../firebase';
 import { User, Briefcase, Globe, Calendar, Search, Loader2, ShieldCheck } from 'lucide-react';
 
 interface CandidateListProps {
@@ -17,11 +16,18 @@ export const CandidateList: React.FC<CandidateListProps> = () => {
     const fetchCandidates = async () => {
       try {
         setLoading(true);
-        const querySnapshot = await getDocs(collection(db, 'candidates'));
-        const list = querySnapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data()
-        }));
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Authentication token unavailable');
+
+        const response = await fetch('/api/candidates/catalog', {
+          headers: { Authorization: `Bearer ${idToken}` }
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload?.success || !Array.isArray(payload.candidates)) {
+          throw new Error(payload?.error || 'Unable to load candidate catalog');
+        }
+
+        const list = payload.candidates;
         if (isMounted) setCandidates(list);
       } catch (err) {
         console.error('Error fetching candidate list:', err);

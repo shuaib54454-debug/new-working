@@ -3,8 +3,10 @@ import { GoogleGenAI } from "@google/genai";
 import { readFileSync, existsSync } from "fs";
 import path from "path";
 import { getAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, cert, getApps } from "firebase-admin/app";
 import type { App as FirebaseAdminApp } from "firebase-admin/app";
+import { validateTD3MRZ } from "./src/lib/passportValidation.ts";
 
 const rootDir = process.cwd();
 const distPath = path.join(rootDir, "dist");
@@ -39,7 +41,7 @@ const ALLOWED_PROJECT_IDS = new Set<string>(
 );
 const firebaseApps = new Map<string, FirebaseAdminApp>();
 
-function getFirebaseAuthForProject(projectId: string) {
+function getFirebaseAppForProject(projectId: string) {
   if (!ALLOWED_PROJECT_IDS.has(projectId)) throw new Error(`Unauthorized Firebase project: ${projectId}`);
   let firebaseApp = firebaseApps.get(projectId);
   if (!firebaseApp) {
@@ -60,7 +62,11 @@ function getFirebaseAuthForProject(projectId: string) {
     }
     firebaseApps.set(projectId, firebaseApp);
   }
-  return getAuth(firebaseApp);
+  return firebaseApp;
+}
+
+function getFirebaseAuthForProject(projectId: string) {
+  return getAuth(getFirebaseAppForProject(projectId));
 }
 
 function getTokenProjectId(idToken: string): string {
@@ -136,6 +142,56 @@ app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 // or deployment details to unauthenticated callers.
 app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
 
+async function verifyFirebaseUserAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return res.status(401).json({ success: false, error: "Authentication required" });
+  const idToken = authHeader.slice(7).trim();
+  if (!idToken || idToken === "guest" || idToken === "applet-agency-session" || idToken.startsWith("local-mode-user:")) {
+    return res.status(401).json({ success: false, error: "A verified Firebase ID token is required" });
+  }
+  try {
+    const projectId = getTokenProjectId(idToken);
+    const auth = getFirebaseAuthForProject(projectId);
+    const hasServiceAccount = Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    const decoded = await auth.verifyIdToken(idToken, hasServiceAccount);
+    (req as any).user = decoded;
+    (req as any).firebaseProjectId = projectId;
+    return next();
+  } catch (error) {
+    console.warn("Firebase user authentication failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(401).json({ success: false, error: "Invalid or expired authentication token" });
+  }
+}
+
+app.get("/api/candidates/catalog", verifyFirebaseUserAuth, async (req, res) => {
+  try {
+    const projectId = (req as any).firebaseProjectId as string;
+    if (projectId !== PRIMARY_PROJECT_ID) return res.status(403).json({ success: false, error: "Unsupported Firebase project" });
+    const firebaseDb = getFirestore(
+      getFirebaseAppForProject(projectId),
+      typeof firebaseConfig?.firestoreDatabaseId === "string" && firebaseConfig.firestoreDatabaseId ? firebaseConfig.firestoreDatabaseId : "(default)"
+    );
+    const snapshot = await firebaseDb.collection("candidates").limit(500).get();
+    const candidates = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        fullName: typeof data.fullName === "string" ? data.fullName : [data.firstName, data.lastName].filter((value) => typeof value === "string" && value.trim()).join(" ").trim(),
+        fullNameArabic: typeof data.fullNameArabic === "string" ? data.fullNameArabic : "",
+        nationality: typeof data.nationality === "string" ? data.nationality : typeof data.country === "string" ? data.country : "إثيوبيا",
+        jobTitle: typeof data.jobTitle === "string" ? data.jobTitle : typeof data.job === "string" ? data.job : "عاملة منزلية",
+        gender: typeof data.gender === "string" ? data.gender : "other",
+        birthDate: typeof data.birthDate === "string" ? data.birthDate : typeof data.dateOfBirth === "string" ? data.dateOfBirth : "",
+        status: typeof data.status === "string" ? data.status : typeof data.stage === "string" ? data.stage : "متاح"
+      };
+    });
+    return res.json({ success: true, candidates });
+  } catch (error) {
+    console.error("Candidate catalog request failed:", error instanceof Error ? error.message : "unknown error");
+    return res.status(500).json({ success: false, error: "Unable to load candidate catalog" });
+  }
+});
+
 app.post("/api/scan-passport", verifyPassportScanAuth, async (req, res) => {
   try {
     const { imageBase64, mimeType = "image/jpeg" } = req.body || {};
@@ -179,7 +235,7 @@ Return ONLY a valid JSON object with the following structure:
   },
   "overallStatus": "VERIFIED or NEEDS_REVIEW"
 }
-If the MRZ on the document is partially obscured, blurry, or missing, extract all clearly visible text from the visual zone and reconstruct the standard 44-character TD3 MRZ lines (line1 starting with P< and line2 with passport number, dates, and check digits) based on the visual fields so that the user receives complete, actionable data.`;
+If the MRZ is partially obscured, blurry, truncated, or missing, DO NOT reconstruct, guess, infer, or invent any MRZ characters or check digits. Return the MRZ line(s) only when they are actually visible/readable; otherwise return empty strings and set overallStatus to NEEDS_REVIEW. Never fabricate passport data.`;
     const models = ["gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
     let lastError: unknown = null;
 
@@ -201,31 +257,108 @@ If the MRZ on the document is partially obscured, blurry, or missing, extract al
           if (!text) throw new Error("Empty Gemini response");
           const parsed = JSON.parse(text);
 
-          // Standardize response payload so client always receives mrzLine1, mrzLine2 and visualZone
-          const rawMrz = typeof parsed.mrz === "string" ? parsed.mrz.split("\n").map((s: string) => s.trim()).filter(Boolean) : [];
-          const mrzLine1 = parsed.mrzLine1 || rawMrz[0] || "";
-          const mrzLine2 = parsed.mrzLine2 || rawMrz[1] || "";
-          const vz = parsed.visualZone || {};
-          const visualZone = {
-            firstName: vz.firstName || parsed.firstName || parsed.givenNames || "",
-            lastName: vz.lastName || parsed.lastName || parsed.surname || "",
-            fullName: vz.fullName || parsed.fullName || (parsed.givenNames && parsed.surname ? `${parsed.givenNames} ${parsed.surname}` : ""),
-            fullNameArabic: vz.fullNameArabic || parsed.fullNameArabic || "",
-            passportNumber: vz.passportNumber || parsed.passportNumber || "",
-            birthDate: vz.birthDate || parsed.birthDate || parsed.dateOfBirth || "",
-            expiryDate: vz.expiryDate || parsed.expiryDate || parsed.dateOfExpiry || "",
-            gender: vz.gender || (parsed.sex === "F" ? "female" : parsed.sex === "M" ? "male" : parsed.sex) || (parsed.gender === "female" ? "female" : "male"),
-            nationality: vz.nationality || parsed.nationality || parsed.issuingCountry || "",
-            jobTitle: vz.jobTitle || parsed.jobTitle || ""
+          // Normalize Gemini output, then independently validate the MRZ on the server.
+          // Gemini is never trusted to decide whether a passport is VERIFIED.
+          const rawMrz = typeof parsed.mrz === "string"
+            ? parsed.mrz.split("\n").map((s: string) => s.trim()).filter(Boolean)
+            : [];
+          const mrzLine1 = typeof parsed.mrzLine1 === "string" ? parsed.mrzLine1.trim() : (rawMrz[0] || "");
+          const mrzLine2 = typeof parsed.mrzLine2 === "string" ? parsed.mrzLine2.trim() : (rawMrz[1] || "");
+          const vz = parsed.visualZone && typeof parsed.visualZone === "object" ? parsed.visualZone : {};
+
+          const normalizeText = (value: unknown) => typeof value === "string" ? value.trim() : "";
+          const normalizePassport = (value: unknown) => normalizeText(value).toUpperCase().replace(/[^A-Z0-9]/g, "");
+          const normalizeDate = (value: unknown) => {
+            const text = normalizeText(value);
+            const match = text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+            return match ? `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}` : text;
           };
+          const mrzDateToIso = (raw: string, expiry: boolean) => {
+            if (!/^\d{6}$/.test(raw)) return "";
+            const yy = Number(raw.slice(0, 2));
+            const mm = raw.slice(2, 4);
+            const dd = raw.slice(4, 6);
+            const currentYear = new Date().getUTCFullYear() % 100;
+            const year = expiry
+              ? (yy >= currentYear ? 2000 + yy : 2000 + yy)
+              : (yy > currentYear ? 1900 + yy : 2000 + yy);
+            return `${year.toString().padStart(4, "0")}-${mm}-${dd}`;
+          };
+
+          const visualZone = {
+            firstName: normalizeText(vz.firstName || parsed.firstName || parsed.givenNames),
+            lastName: normalizeText(vz.lastName || parsed.lastName || parsed.surname),
+            fullName: normalizeText(vz.fullName || parsed.fullName || (parsed.givenNames && parsed.surname ? `${parsed.givenNames} ${parsed.surname}` : "")),
+            fullNameArabic: normalizeText(vz.fullNameArabic || parsed.fullNameArabic),
+            passportNumber: normalizeText(vz.passportNumber || parsed.passportNumber),
+            birthDate: normalizeDate(vz.birthDate || parsed.birthDate || parsed.dateOfBirth),
+            expiryDate: normalizeDate(vz.expiryDate || parsed.expiryDate || parsed.dateOfExpiry),
+            gender: (() => {
+              const value = normalizeText(vz.gender || parsed.gender);
+              if (value === "female" || parsed.sex === "F") return "female";
+              if (value === "male" || parsed.sex === "M") return "male";
+              return "other";
+            })(),
+            nationality: normalizeText(vz.nationality || parsed.nationality || parsed.issuingCountry),
+            jobTitle: normalizeText(vz.jobTitle || parsed.jobTitle)
+          };
+
+          const mrz = validateTD3MRZ(mrzLine1, mrzLine2);
+          const mrzPassportNumber = mrz.passportNumber;
+          const mrzBirthDate = mrzDateToIso(mrz.birthDateRaw, false);
+          const mrzExpiryDate = mrzDateToIso(mrz.expiryDateRaw, true);
+          const mrzGender = mrz.gender;
+
+          const suppliedPassport = normalizePassport(visualZone.passportNumber);
+          const suppliedBirthDate = normalizeDate(visualZone.birthDate);
+          const suppliedExpiryDate = normalizeDate(visualZone.expiryDate);
+          const passportMatches = !suppliedPassport || suppliedPassport === mrzPassportNumber;
+          const birthMatches = !suppliedBirthDate || suppliedBirthDate === mrzBirthDate;
+          const expiryMatches = !suppliedExpiryDate || suppliedExpiryDate === mrzExpiryDate;
+          const genderMatches = visualZone.gender === "other" || visualZone.gender === mrzGender;
+          const hasCoreVisualData = Boolean(
+            visualZone.passportNumber &&
+            visualZone.birthDate &&
+            visualZone.expiryDate &&
+            visualZone.firstName
+          );
+
+          const expiryDate = mrzExpiryDate ? new Date(`${mrzExpiryDate}T00:00:00Z`) : null;
+          const notExpired = Boolean(expiryDate && !Number.isNaN(expiryDate.getTime()) && expiryDate.getTime() >= Date.now());
+
+          const independentlyVerified =
+            mrz.isValid &&
+            hasCoreVisualData &&
+            passportMatches &&
+            birthMatches &&
+            expiryMatches &&
+            genderMatches &&
+            notExpired;
+
+          if (mrz.isValid) {
+            // Prefer the cryptographically checked MRZ values over model-generated visual values.
+            visualZone.passportNumber = mrzPassportNumber;
+            visualZone.birthDate = mrzBirthDate;
+            visualZone.expiryDate = mrzExpiryDate;
+            if (mrzGender !== "other") visualZone.gender = mrzGender;
+          }
 
           return res.json({
             success: true,
             data: {
-              mrzLine1,
-              mrzLine2,
+              mrzLine1: mrz.isValid ? mrzLine1 : "",
+              mrzLine2: mrz.isValid ? mrzLine2 : "",
               visualZone,
-              overallStatus: parsed.overallStatus || "VERIFIED"
+              overallStatus: independentlyVerified ? "VERIFIED" : "NEEDS_REVIEW",
+              verification: {
+                mrzValid: mrz.isValid,
+                mrzErrors: mrz.errors,
+                passportNumberMatches: passportMatches,
+                birthDateMatches: birthMatches,
+                expiryDateMatches: expiryMatches,
+                genderMatches,
+                notExpired
+              }
             },
             model
           });
