@@ -1,47 +1,63 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // دالة التحقق من تسجيل الدخول (للعملاء)
+
     function isSignedIn() {
       return request.auth != null && request.auth.uid != null;
     }
-    
-    // دالة التحقق من المالك (الإدارة)
+
     function isOwner() {
-      return isSignedIn() && (
-        request.auth.token.email.lower() == "shuaib54454@gmail.com" ||
-        (request.auth.token.email_verified == true && request.auth.token.email.lower() == "shuaib54454@gmail.com")
-      );
+      return isSignedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == "shuaib54454@gmail.com";
     }
 
-    // 1. قواعد المرشحين: المالك له كل الصلاحيات، والعميل المسجل يمكنه القراءة فقط
+    function hasOnlySelectionFields() {
+      return request.resource.data.keys().hasOnly([
+        "candidateId",
+        "candidateName",
+        "clientUid",
+        "clientEmail",
+        "status",
+        "createdAt"
+      ]);
+    }
+
     match /candidates/{candidateId} {
-      allow read: if isSignedIn(); 
+      allow read: if isSignedIn();
       allow write: if isOwner();
     }
 
-    // 2. قواعد الاختيارات (الطلبات الجديدة):
     match /selections/{selectionId} {
-      // العميل يمكنه إنشاء طلب جديد، وقراءة طلباته السابقة فقط
-      allow create: if isSignedIn() && request.resource.data.clientUid == request.auth.uid;
-      allow read: if isSignedIn() && resource.data.clientUid == request.auth.uid;
-      // المالك يمكنه قراءة وتعديل وحذف كل الطلبات
-      allow read, write: if isOwner();
+      allow create: if isSignedIn()
+        && hasOnlySelectionFields()
+        && request.resource.data.clientUid == request.auth.uid
+        && request.resource.data.status == "Pending"
+        && request.resource.data.candidateId is string
+        && request.resource.data.candidateName is string
+        && request.resource.data.clientEmail is string
+        && request.resource.data.createdAt == request.time;
+
+      allow read: if isOwner()
+        || (isSignedIn() && resource.data.clientUid == request.auth.uid);
+
+      allow update, delete: if isOwner();
     }
 
-    // 3. باقي المجموعات تبقى مخصصة للمالك فقط
     match /expenses/{expenseId} {
       allow read, write: if isOwner();
     }
+
     match /settings/{userId} {
       allow read, write: if isOwner();
     }
+
     match /activities/{activityId} {
       allow read, write: if isOwner();
     }
+
     match /_system/{docId} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isOwner();
     }
   }
 }
