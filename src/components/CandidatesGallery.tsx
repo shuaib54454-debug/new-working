@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
+import { collection, doc, getDocs, serverTimestamp, query, setDoc, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { User, Briefcase, Globe, CheckCircle, Calendar, AlertCircle, Loader2, Info } from 'lucide-react';
 
@@ -129,8 +129,10 @@ export default function CandidatesGallery() {
 
       const candidateDisplayName = candidate.fullNameArabic || candidate.fullName;
 
-      // إضافة طلب جديد إلى مجموعة selections
-      await addDoc(collection(db, 'selections'), {
+      // استخدم معرفاً حتمياً لمنع إنشاء أكثر من طلب لنفس العميل والمرشح.
+      // إذا كان الطلب موجوداً مسبقاً، تمنع قواعد Firestore تحديثه من جهة العميل.
+      const selectionId = `${auth.currentUser.uid}__${candidate.id}`;
+      await setDoc(doc(db, 'selections', selectionId), {
         candidateId: candidate.id,
         candidateName: candidateDisplayName,
         clientUid: auth.currentUser.uid,
