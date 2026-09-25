@@ -32,6 +32,7 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && hasOnlySelectionFields()
         && request.resource.data.clientUid == request.auth.uid
+        && request.resource.data.clientEmail.lower() == request.auth.token.email.lower()
         && request.resource.data.status == "Pending"
         && request.resource.data.candidateId is string
         && request.resource.data.candidateName is string
