@@ -180,7 +180,7 @@ Return ONLY a valid JSON object with the following structure:
   "overallStatus": "VERIFIED or NEEDS_REVIEW"
 }
 If the MRZ on the document is partially obscured, blurry, or missing, extract all clearly visible text from the visual zone and reconstruct the standard 44-character TD3 MRZ lines (line1 starting with P< and line2 with passport number, dates, and check digits) based on the visual fields so that the user receives complete, actionable data.`;
-    const models = ["gemini-3.1-flash-lite", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-flash-latest"];
+    const models = ["gemini-flash-latest", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
     let lastError: unknown = null;
 
     for (const model of models) {
@@ -242,8 +242,13 @@ If the MRZ on the document is partially obscured, blurry, or missing, extract al
       }
     }
 
-    console.error("All Gemini passport scan models failed:", lastError instanceof Error ? lastError.message : "unknown error");
-    return res.status(502).json({ success: false, error: "Passport scanning service temporarily unavailable. Please retry in a few moments." });
+    const errStr = lastError instanceof Error ? lastError.message : String(lastError);
+    console.error("All Gemini passport scan models failed:", errStr);
+    const isQuota = errStr.includes("429") || errStr.includes("RESOURCE_EXHAUSTED") || errStr.includes("quota");
+    const userMessage = isQuota
+      ? "تم تجاوز حد الطلبات المؤقت لخدمة قراءة الجوازات عبر الذكاء الاصطناعي (Quota Exceeded). يرجى المحاولة بعد قليل أو إدخال البيانات يدوياً."
+      : "خدمة مسح الجوازات غير متاحة مؤقتاً، يرجى إعادة المحاولة بعد لحظات.";
+    return res.status(isQuota ? 429 : 502).json({ success: false, error: userMessage, isQuota });
   } catch (error) {
     console.error("Passport scan request failed:", error instanceof Error ? error.message : "unknown error");
     return res.status(500).json({ success: false, error: "Passport scan request failed" });
