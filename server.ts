@@ -259,14 +259,15 @@ async function startServer() {
   app.use(express.static(distPath));
   app.use(express.static(publicPath));
 
+  let viteInstance: any = null;
   if (process.env.NODE_ENV !== "production" && existsSync(path.join(rootDir, "src", "main.tsx"))) {
     try {
       const { createServer: createViteServer } = await import("vite");
-      const vite = await createViteServer({
+      viteInstance = await createViteServer({
         server: { middlewareMode: true },
         appType: "spa",
       });
-      app.use(vite.middlewares);
+      app.use(viteInstance.middlewares);
     } catch (err) {
       console.warn("Vite dev server initialization fallback:", err);
     }
@@ -283,11 +284,22 @@ async function startServer() {
     return res.sendFile(path.join(publicPath, "sw.js"));
   });
   app.use(express.static(distPath));
-  app.get("*", (_req, res) => {
-    if (existsSync(path.join(distPath, "index.html"))) {
-      return res.sendFile(path.join(distPath, "index.html"));
+  app.get("*", async (req, res, next) => {
+    try {
+      const indexPath = existsSync(path.join(distPath, "index.html"))
+        ? path.join(distPath, "index.html")
+        : path.join(rootDir, "index.html");
+      let html = readFileSync(indexPath, "utf-8");
+      if (viteInstance) {
+        html = await viteInstance.transformIndexHtml(req.url, html);
+      }
+      res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).end(html);
+    } catch (e) {
+      if (viteInstance && typeof viteInstance.ssrFixStacktrace === "function") {
+        viteInstance.ssrFixStacktrace(e);
+      }
+      next(e);
     }
-    return res.sendFile(path.join(rootDir, "index.html"));
   });
 
   app.listen(PORT, "0.0.0.0", () => {

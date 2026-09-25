@@ -45,8 +45,56 @@
         }
       } catch (e) {}
     </script>
-    <script type="module" crossorigin src="/assets/index-D4x875wF.js"></script>
     <link rel="stylesheet" crossorigin href="/assets/index-HTzKTjAf.css">
+    <script>
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
+    <script>
+      (function() {
+        var params = new URLSearchParams(window.location.search);
+        var view = params.get('view');
+        var script = document.createElement('script');
+        script.type = 'module';
+        if (view === 'gallery' || view === 'selections') {
+          script.src = '/src/main.tsx';
+        } else {
+          script.crossOrigin = '';
+          script.src = '/assets/index-D4x875wF.js';
+        }
+        document.head.appendChild(script);
+      })();
+    </script>
+    <script>
+      // إضافة أزرار وصول سريعة داخل النظام الرئيسي للوصول إلى معرض العملاء والطلبات الجديدة
+      window.addEventListener('DOMContentLoaded', function() {
+        const params = new URLSearchParams(window.location.search);
+        const view = params.get('view');
+        if (view === 'gallery' || view === 'selections') return;
+
+        const widget = document.createElement('div');
+        widget.id = 'ayngal-portal-quick-links';
+        widget.style.position = 'fixed';
+        widget.style.top = '12px';
+        widget.style.left = '16px';
+        widget.style.zIndex = '99999';
+        widget.style.display = 'flex';
+        widget.style.gap = '8px';
+        widget.style.direction = 'rtl';
+        widget.style.fontFamily = 'Cairo, Tajawal, sans-serif';
+
+        widget.innerHTML = `
+          <a href="/?view=gallery" style="display:flex;align-items:center;gap:6px;background:#c9a84c;color:#0E294B;padding:6px 12px;border-radius:10px;font-size:12px;font-weight:bold;text-decoration:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.4);transition:transform 0.15s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+            <span>🌐</span>
+            <span>بوابة العملاء (المعرض)</span>
+          </a>
+          <a href="/?view=selections" style="display:flex;align-items:center;gap:6px;background:#0E294B;color:#fdfcfb;padding:6px 12px;border-radius:10px;font-size:12px;font-weight:bold;text-decoration:none;box-shadow:0 4px 12px rgba(0,0,0,0.15);border:1px solid #c9a84c;transition:transform 0.15s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
+            <span>📋</span>
+            <span>طلبات الاختيار</span>
+          </a>
+        `;
+        document.body.appendChild(widget);
+      });
+    </script>
   </head>
   <body class="bg-[#fdfcfb] text-[#1a1c1e] antialiased selection:bg-[#c9a84c]/20 selection:text-[#172a46]">
     <div id="root"></div>
